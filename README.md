@@ -8,6 +8,8 @@ by *Lahav Dabah* and *Dr. Tom Tirer*.
 
 ## 📄 Paper
 
+This work has been **accepted for presentation at the 42st International Conference on Machine Learning (ICML 2025).**
+
 If you find this work useful, please consider citing our paper:
 
 ```bibtex
