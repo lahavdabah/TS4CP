@@ -1,0 +1,18 @@
+dataset_model:      
+  dataset_model_pair_name: "Cifar100-DenseNet121"     # options: "Cifar10-ResNet50", "Cifar10-ResNet34", "Cifar100-ResNet50", "Cifar100-DenseNet121", "ImageNet-ResNet152", "ImageNet-ViT"
+  device: "cpu"  # options: "cpu", "cuda"
+
+
+conformal:
+  n: 1000            # number of samples used for the CP procedure 
+  alpha: 0.1
+  device: "cpu"
+  method: "RAPS"     # options: "LAC", "APS", "RAPS"
+  lam_reg: 0.01      # only used by RAPS
+  k_reg: 5           # only used by RAPS
+
+
+metric:
+  name: "AvgSize" # options: "AvgSize", "MarCovGap", "TopCovGap", "AvgCovGap"
+
+

@@ -1,10 +1,118 @@
-# TS4CP
+# TS4CP (ICML 2025)
 
 **TS4CP** is the code accompanying the paper:  
 [**On Temperature Scaling and Conformal Prediction of Deep Classifiers**](https://arxiv.org/abs/2402.05806)  
 by *Lahav Dabah* and *Dr. Tom Tirer*.
 
-> 🚧 **Code coming soon!** Stay tuned for the release.
+## 🧠 Overview
+This repository contains the implementation for our paper, focusing on a novel approach to utilize temperature scaling in the context of conformal prediction. The code allows replication of our results and experimentation with your own models.
+
+Main scripts:
+
+- `figure1_plots.py`: Generates the primary visualizations presented in **Figure 1** of the paper.
+- `ts4avg_size.py`: Computes optimal temperature values for calibration and for average prediction set size metric (AvgSize).
+- `ts4top_cov_gap.py`: Computes optimal temperature values for calibration and for conditional covarge metric (TopCovGap).
+- `ts4cp.py`: Computes optimal temperature values for calibration and for tradeoffs between average prediction set size and conditional coverage metrics (AvgSize and TopCovGap). We denote the trade-off parameter as **`beta`**, which is user-configurable and takes values in the range **[0, 1]**. Setting **`beta = 0`** corresponds to optimizing the temperature for **AvgSize**, while **`beta = 1`** corresponds to optimizing for **TopCovGap**.
+
+## Setup
+Clone the repo and install dependencies:
+```
+git clone https://github.com/your-username/your-repo-name.git
+cd your-repo-name
+pip install -r requirements.txt
+```
+
+## Repository Structure
+```
+├── README.md
+├── __init__.py
+├── config
+│   ├── plots_config.yaml
+│   └── ts4cp_config.yaml
+├── data
+│   ├── Cifar10-ResNet34_data.npz
+│   ├── Cifar10-ResNet50_data.npz
+│   ├── Cifar100-DenseNet121_data.npz
+│   ├── Cifar100-ResNet50_data.npz
+│   ├── ImageNet-ResNet152_data.npz
+│   └── ImageNet-ViT_data.npz
+├── figure1_plots.py
+├── plots
+│   ├── AvgCovGap_Cifar100-DenseNet121_plot.png
+│   └── AvgSize_Cifar100-DenseNet121_plot.png
+├── requirements.txt
+├── src
+│   ├── __init__.py
+│   ├── algorithms.py
+│   ├── data.py
+│   ├── initialize_configs.py
+│   ├── metrics.py
+│   └── utils.py
+└── ts4cp.py
+```
+
+
+## 🚀 Usage
+
+Each main script relies on its respective YAML configuration file, which controls experiment parameters.
+
+### Configuration Options
+
+**In `config/plots_config.yaml` and `config/ts4cp_config.yaml`:**
+
+```yaml
+dataset_model:
+  dataset_model_pair_name:  # Options: "Cifar10-ResNet50", "Cifar10-ResNet34", ...
+  device: "cpu" | "cuda"
+
+conformal:
+  n:         # Number of samples for the CP procedure
+  alpha:     # Coverage level (float in [0, 1])
+  device:    # "cpu" or "cuda"
+  method:    # "lac", "aps", "raps"
+  lam_reg:   # (Only for RAPS) lambda regularization term
+  k_reg:     # (Only for RAPS) k regularization term
+
+metric:
+  name:      # One of "AvgSize", "MarCovGap", "TopCovGap", "AvgCovGap" (only in plots_config.yaml)
+
+beta:         # (Only in ts4cp_config.yaml) Tradeoff parameter ∈ [0, 1]
+              # 0 → optimal for AvgSize, 1 → optimal for TopCovGap
+```
+
+Modify the configuration as needed, then run one of the main scripts based on your objective:
+
+**Examples:**
+
+- To apply the CP algorithm optimizing for the optimal *average prediction set size* (AvgSize), run:  
+  `ts4avg_size.py`
+
+- To run the CP algorithm optimizing for the optimal *conditional coverage gap* (TopCovGap), run:  
+  `ts4topcov_gap.py`
+
+- To explore the trade-off between AvgSize and TopCovGap, adjust the **beta** parameter in `config/ts4cp_config.yaml` and run:  
+  `ts4tradeoff.py`
+
+
+
+### 💡 Using Your Own Model
+
+You can use **TS4CP** with your own trained models!
+
+1. Run your pretrained model on a validation set and save the logits (output scores before softmax) and the corresponding true labels in a `.npz` file.  
+   The `.npz` file should contain two arrays:
+   - `logits`: a 2D array of shape `(num_samples, num_classes)`
+   - `labels`: a 1D array of shape `(num_samples,)`
+
+2. Save the file in the `data/` directory using the following naming format:  `DatasetName-ModelName_data.npz`
+
+3. In `src/data.py`, add your custom dataset-model pair to the list of supported options so it can be selected in the config file.
+
+4. Update the relevant configuration YAML file (`plots_config.yaml` or `ts4cp_config.yaml`) with your new `dataset_model_pair_name`.
+
+You can now run the `ts4cp.py` or `figure1_plots.py` scripts with your own model and evaluate it using our temperature scaling and conformal prediction framework.
+
+
 
 ## 📄 Paper
 
