@@ -4,6 +4,8 @@
 [**On Temperature Scaling and Conformal Prediction of Deep Classifiers**](https://arxiv.org/abs/2402.05806)  
 by *Lahav Dabah* and *Dr. Tom Tirer*.
 
+For more 
+
 ## 🧠 Overview
 This repository contains the implementation for our paper, focusing on a novel approach to utilize temperature scaling in the context of conformal prediction. The code allows replication of our results and experimentation with your own models.
 
@@ -20,35 +22,6 @@ Clone the repo and install dependencies:
 git clone https://github.com/your-username/your-repo-name.git
 cd your-repo-name
 pip install -r requirements.txt
-```
-
-## Repository Structure
-```
-├── README.md
-├── __init__.py
-├── config
-│   ├── plots_config.yaml
-│   └── ts4cp_config.yaml
-├── data
-│   ├── Cifar10-ResNet34_data.npz
-│   ├── Cifar10-ResNet50_data.npz
-│   ├── Cifar100-DenseNet121_data.npz
-│   ├── Cifar100-ResNet50_data.npz
-│   ├── ImageNet-ResNet152_data.npz
-│   └── ImageNet-ViT_data.npz
-├── figure1_plots.py
-├── plots
-│   ├── AvgCovGap_Cifar100-DenseNet121_plot.png
-│   └── AvgSize_Cifar100-DenseNet121_plot.png
-├── requirements.txt
-├── src
-│   ├── __init__.py
-│   ├── algorithms.py
-│   ├── data.py
-│   ├── initialize_configs.py
-│   ├── metrics.py
-│   └── utils.py
-└── ts4cp.py
 ```
 
 

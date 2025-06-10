@@ -38,7 +38,7 @@ class ConformalPredictor:
         ])[torch.randperm(smx.shape[0])]
         return smx[idx], smx[~idx], labels[idx], labels[~idx]
 
-    def predict(self, smx: torch.Tensor, labels: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def predict(self, smx: torch.Tensor, labels: torch.Tensor, qhat=None) -> tuple[torch.Tensor, torch.Tensor, float]:
         """Predict the conformal sets based on the method specified.
         Args:
             smx (torch.Tensor): The softmax probabilities of shape (n_samples, n_classes).
@@ -47,11 +47,11 @@ class ConformalPredictor:
             Tuple[torch.Tensor, torch.Tensor]: The predicted sets and the corresponding labels.
         """
         if self.method == "LAC":
-            return self._cp_lac(smx, labels)
+            return self._cp_lac(smx, labels, qhat)
         elif self.method == "APS":
-            return self._cp_aps(smx, labels)
+            return self._cp_aps(smx, labels, qhat)
         elif self.method == "RAPS":
-            return self._cp_raps(smx, labels)
+            return self._cp_raps(smx, labels, qhat)
         else:
             raise ValueError(f"Unknown method: {self.method}")
 
@@ -67,7 +67,7 @@ class ConformalPredictor:
         q_level = (torch.ceil(torch.tensor((n + 1) * (1 - alpha))) / n).to(self.device).type(scores.dtype)
         return torch.quantile(scores, q_level, interpolation='higher')
 
-    def _cp_lac(self, smx: torch.Tensor, labels: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def _cp_lac(self, smx: torch.Tensor, labels: torch.Tensor, qhat=None) -> tuple[torch.Tensor, torch.Tensor, float]:
         """LAC conformal prediction method.
         Args:
             smx (torch.Tensor): The softmax probabilities of shape (n_samples, n_classes).
@@ -75,14 +75,19 @@ class ConformalPredictor:
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: The predicted sets and the corresponding labels.
         """
-        n = self.n
-        cal_smx, val_smx, cal_labels, val_labels = self._split(smx, labels)
-        cal_scores = 1 - cal_smx[torch.arange(n), cal_labels]
-        qhat = self._get_qhat(cal_scores)
-        pred_sets = val_smx >= (1 - qhat)
-        return pred_sets, val_labels
+        if not qhat:
+            n = self.n
+            cal_smx, val_smx, cal_labels, val_labels = self._split(smx, labels)
+            cal_scores = 1 - cal_smx[torch.arange(n), cal_labels]
+            qhat = self._get_qhat(cal_scores)
+        else:
+            val_smx = smx
+            val_labels = labels
 
-    def _cp_aps(self, smx: torch.Tensor, labels: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        pred_sets = val_smx >= (1 - qhat)
+        return pred_sets, val_labels, qhat
+
+    def _cp_aps(self, smx: torch.Tensor, labels: torch.Tensor, qhat=None) -> tuple[torch.Tensor, torch.Tensor, float]:
         """APS conformal prediction method.
         Args:
             smx (torch.Tensor): The softmax probabilities of shape (n_samples, n_classes).
@@ -90,17 +95,22 @@ class ConformalPredictor:
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: The predicted sets and the corresponding labels.
         """
-        n = self.n
-        cal_smx, val_smx, cal_labels, val_labels = self._split(smx, labels)
-        val_labels, val_order = torch.sort(val_labels)
-        val_smx = val_smx[val_order]
+        if not qhat:
+            n = self.n
+            cal_smx, val_smx, cal_labels, val_labels = self._split(smx, labels)
+            val_labels, val_order = torch.sort(val_labels)
+            val_smx = val_smx[val_order]
 
-        cal_pi = torch.argsort(cal_smx, dim=1, descending=True)
-        cal_srt = torch.gather(cal_smx, 1, cal_pi)
-        cal_L = (cal_pi == cal_labels.view(-1, 1)).nonzero()[:, 1]
-        cal_scores = cal_srt.cumsum(dim=1)[torch.arange(n), cal_L] - torch.rand(n, device=self.device) * cal_srt[torch.arange(n), cal_L]
+            cal_pi = torch.argsort(cal_smx, dim=1, descending=True)
+            cal_srt = torch.gather(cal_smx, 1, cal_pi)
+            cal_L = (cal_pi == cal_labels.view(-1, 1)).nonzero()[:, 1]
+            cal_scores = cal_srt.cumsum(dim=1)[torch.arange(n), cal_L] - torch.rand(n, device=self.device) * cal_srt[torch.arange(n), cal_L]
 
-        qhat = self._get_qhat(cal_scores)
+            qhat = self._get_qhat(cal_scores)
+
+        else:
+            val_smx = smx
+            val_labels = labels
 
         val_pi = torch.argsort(val_smx, dim=1, descending=True)
         val_srt = torch.gather(val_smx, 1, val_pi)
@@ -109,33 +119,38 @@ class ConformalPredictor:
         indicators = temp <= qhat
         indicators[:, 0] = True
         pred_sets = torch.gather(indicators, 1, val_pi.argsort(dim=1))
-        return pred_sets, val_labels
+        return pred_sets, val_labels, qhat
 
-    def _cp_raps(self, smx: torch.Tensor, labels: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def _cp_raps(self, smx: torch.Tensor, labels: torch.Tensor, qhat=None) -> tuple[torch.Tensor, torch.Tensor, float]:
         """RAPS conformal prediction method.
         Args:
             smx (torch.Tensor): The softmax probabilities of shape (n_samples, n_classes).
             labels (torch.Tensor): The true labels of shape (n_samples,).
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: The predicted sets and the corresponding labels.
-        """
-        n = self.n
+        """ 
+        num_classes = smx.shape[1]
         lam_reg = self.lam_reg
         k_reg = self.k_reg
-        num_classes = smx.shape[1]
-
-        cal_smx, val_smx, cal_labels, val_labels = self._split(smx, labels)
         reg_vec = torch.cat([
-            torch.zeros(k_reg),
-            lam_reg * torch.ones(num_classes - k_reg)
-        ]).unsqueeze(0).to(self.device)
+                torch.zeros(k_reg),
+                lam_reg * torch.ones(num_classes - k_reg)
+            ]).unsqueeze(0).to(self.device)
+        if not qhat:
+            n = self.n
 
-        cal_pi = torch.argsort(cal_smx, dim=1, descending=True)
-        cal_srt = torch.gather(cal_smx, 1, cal_pi) + reg_vec
-        cal_L = (cal_pi == cal_labels.view(-1, 1)).nonzero()[:, 1]
-        cal_scores = cal_srt.cumsum(dim=1)[torch.arange(n), cal_L] - torch.rand(n, device=self.device) * cal_srt[torch.arange(n), cal_L]
+            cal_smx, val_smx, cal_labels, val_labels = self._split(smx, labels)
 
-        qhat = self._get_qhat(cal_scores)
+            cal_pi = torch.argsort(cal_smx, dim=1, descending=True)
+            cal_srt = torch.gather(cal_smx, 1, cal_pi) + reg_vec
+            cal_L = (cal_pi == cal_labels.view(-1, 1)).nonzero()[:, 1]
+            cal_scores = cal_srt.cumsum(dim=1)[torch.arange(n), cal_L] - torch.rand(n, device=self.device) * cal_srt[torch.arange(n), cal_L]
+
+            qhat = self._get_qhat(cal_scores)
+        
+        else: 
+            val_smx = smx
+            val_labels = labels
 
         val_pi = torch.argsort(val_smx, dim=1, descending=True)
         val_srt = torch.gather(val_smx, 1, val_pi) + reg_vec
@@ -143,4 +158,4 @@ class ConformalPredictor:
         temp = val_cumsum - torch.rand(val_smx.size(0), 1, device=self.device) * val_srt
         indicators = temp <= qhat
         pred_sets = torch.gather(indicators, 1, val_pi.argsort(dim=1))
-        return pred_sets, val_labels
+        return pred_sets, val_labels, qhat

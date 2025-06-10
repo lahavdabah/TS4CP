@@ -1,6 +1,7 @@
 from typing import Literal
 
 import torch
+import torch.nn.functional as F
 from tqdm import tqdm
 from pydantic import BaseModel
 
@@ -46,7 +47,7 @@ class Metric:
             raise ValueError(f"Unknown metric name: {self.name}")
         
 
-    def compute_metric_as_func_of_temp(self, temperatures_vec: torch.Tensor, dataset_model: DatasetModelPair, predictor: ConformalPredictor, n_iter: int) -> torch.Tensor:
+    def compute_metric_as_func_of_temp(self, temperatures_vec: torch.Tensor, logits: torch.Tensor, true_labels: torch.Tensor, predictor: ConformalPredictor, n_iter: int) -> torch.Tensor:
         """Compute the metric as a function of temperature.
         Args:
             temperatures_vec (torch.Tensor): A tensor of temperatures to evaluate.
@@ -59,16 +60,20 @@ class Metric:
             mean_metric_values_vec (torch.Tensor): A tensor containing the mean metric values for each temperature.
         """
         mean_metric_values_vec = torch.zeros_like(temperatures_vec)
+        mean_qhat_vec = torch.zeros_like(temperatures_vec)
         for _ in tqdm(range(n_iter)):
             metric_values_vec = torch.zeros_like(temperatures_vec)
+            qhat_vec = torch.zeros_like(temperatures_vec)
             for index, temp in enumerate(temperatures_vec):
-                smx_ts = dataset_model.smx_after_temp_scaling(temp)
-                smx_ts, val_labels_ts = predictor.predict(smx_ts, dataset_model.true_labels)
-                metric_value_ts = self.compute_metric(smx_ts, val_labels_ts, predictor.alpha)
+                smx_ts = F.softmax(logits / temp)
+                pred_sets, val_labels_ts, qhat = predictor.predict(smx_ts, true_labels)
+                metric_value_ts = self.compute_metric(pred_sets, val_labels_ts, predictor.alpha)
                 metric_values_vec[index] = metric_value_ts
+                qhat_vec[index] = qhat
             mean_metric_values_vec += (1 / n_iter) * metric_values_vec
+            mean_qhat_vec += (1/n_iter) * qhat_vec
 
-        return mean_metric_values_vec
+        return mean_metric_values_vec, mean_qhat_vec
         
 
 

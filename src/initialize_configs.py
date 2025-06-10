@@ -4,6 +4,7 @@ import torch
 from src.data import DatasetModelPairConfig, DatasetModelPair
 from src.algorithms import ConformalConfig, ConformalPredictor
 from src.metrics import MetricConfig, Metric
+from src.ts_for_cp import TS4CPConfig, TS4CP
 
 
 def load_yaml_config(path: str):
@@ -61,6 +62,7 @@ def initialize_configs_ts4cp() -> tuple[torch.device, DatasetModelPair, Conforma
     predictor = ConformalPredictor(conformal_cfg)
 
     # Load beta
-    beta = config_dict["beta"]
+    ts4cp_cfg = TS4CPConfig(**config_dict["ts4cp"])
+    ts4cp = TS4CP(ts4cp_cfg)
 
-    return device, dataset_model, predictor, beta
+    return device, dataset_model, predictor, ts4cp

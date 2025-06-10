@@ -13,6 +13,6 @@ conformal:
 
 
 metric:
-  name: "AvgSize" # options: "AvgSize", "MarCovGap", "TopCovGap", "AvgCovGap"
+  name: "TopCovGap" # options: "AvgSize", "MarCovGap", "TopCovGap", "AvgCovGap"
 
 

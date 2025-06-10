@@ -12,4 +12,8 @@ conformal:
   k_reg: 5           # only used by RAPS
 
 
-beta: 0 # options: value in [0,1]. 0 - optimal temparature for AvgSize, 1 - optimal temperature for TopCovGap
+ts4cp:
+  n_eval: 1000
+  beta: 0
+    # beta is the trade-off parameter between AvgSize and TopCovGap which is user-configurable and takes values in the range [0, 1]. 
+    # Setting beta = 0 corresponds to optimizing the temperature for AvgSize, while beta = 1 corresponds to optimizing for TopCovGap.
